@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NETRA GCS — Rover Mission Control &amp; Telemetry Station</title>
+  <link rel="stylesheet" href="style.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+</head>
+<body>
+
+<!-- ═════════════════════════════════════════════════════════════════
+     OPENING 3D SHOWCASE PORTAL SCREEN
+     Full 3D Rover Experience that unlocks the GCS on Tap / Click
+═════════════════════════════════════════════════════════════════ -->
+<div id="opening-portal" class="portal-overlay">
+  <!-- Three.js Fullscreen Showcase Canvas -->
+  <canvas id="portal-canvas"></canvas>
+
+  <!-- Atmospheric Grid & Vignette Overlay -->
+  <div class="portal-vignette"></div>
+
+  <!-- Top Showcase Navigation Bar -->
+  <header class="portal-header">
+    <div class="portal-brand">
+      <div class="p-logo"><i class="fas fa-satellite-dish"></i></div>
+      <div class="p-brand-text">
+        <span class="p-title">NETRA ASTROROBOTICS</span>
+        <span class="p-sub">NTR-MK2 SURFACE EXPLORATION ROVER</span>
+      </div>
+    </div>
+    <div class="portal-status-pills">
+      <span class="p-pill online"><span class="dot"></span> TELEMETRY IDLE</span>
+      <span class="p-pill">RTK-GNSS L1/L2</span>
+      <span class="p-pill">6-WHEEL ROCKER-BOGIE</span>
+    </div>
+  </header>
+
+  <!-- Left Telemetry Specs Overlay -->
+  <aside class="portal-specs-left">
+    <div class="ps-card">
+      <span class="ps-label">PLATFORM DIMENSIONS</span>
+      <strong class="ps-val">1,400 × 900 × 780 mm</strong>
+    </div>
+    <div class="ps-card">
+      <span class="ps-label">CURB WEIGHT (WITH PAYLOAD)</span>
+      <strong class="ps-val">14.20 kg (31.3 lbs)</strong>
+    </div>
+    <div class="ps-card">
+      <span class="ps-label">POWERTRAIN BUS</span>
+      <strong class="ps-val">6S LiFePO4 · 24V 30Ah</strong>
+    </div>
+  </aside>
+
+  <!-- Right Telemetry Specs Overlay -->
+  <aside class="portal-specs-right">
+    <div class="ps-card">
+      <span class="ps-label">SURFACE TRACTION SPEED</span>
+      <strong class="ps-val">3.50 m/s (12.6 km/h)</strong>
+    </div>
+    <div class="ps-card">
+      <span class="ps-label">PERCEPTION SUITE</span>
+      <strong class="ps-val">VLP-16 LiDAR + 4K Stereo</strong>
+    </div>
+    <div class="ps-card">
+      <span class="ps-label">OBSTACLE CLEARANCE</span>
+      <strong class="ps-val">220 mm Rock Clearance</strong>
+    </div>
+  </aside>
+
+  <!-- Interactive Hotspot Cue over the 3D Rover -->
+  <div class="portal-center-target" id="portal-target-cue">
+    <div class="target-bracket tb-tl"></div>
+    <div class="target-bracket tb-tr"></div>
+    <div class="target-bracket tb-bl"></div>
+    <div class="target-bracket tb-br"></div>
+    <div class="target-pulse"></div>
+    <div class="target-label">
+      <i class="fas fa-hand-pointer"></i> TAP ROVER TO INITIALIZE MISSION CONTROL
+    </div>
+  </div>
+
+  <!-- Bottom Action Card -->
+  <footer class="portal-footer">
+    <div class="portal-instruction">
+      <span><i class="fas fa-mouse"></i> Drag to orbit 360° · Scroll to zoom</span>
+      <span class="sep">·</span>
+      <span>Tap 3D Rover or select mode below to enter</span>
+    </div>
+    <div class="portal-actions-row">
+      <button id="btn-enter-simple" class="portal-enter-btn portal-btn-simple" title="Enter with friendly controls and clean layout">
+        <span class="btn-ambient-glow"></span>
+        <span class="btn-content">
+          <i class="fas fa-play-circle text-green"></i>
+          <span>QUICK START (EASY MODE)</span>
+          <i class="fas fa-chevron-right"></i>
+        </span>
+      </button>
+      <button id="btn-enter-mission" class="portal-enter-btn portal-btn-pro" title="Enter full engineering telemetry cockpit">
+        <span class="btn-content">
+          <i class="fas fa-sliders-h"></i>
+          <span>PRO TELEMETRY MODE</span>
+        </span>
+      </button>
+    </div>
+  </footer>
+</div>
+
+<!-- ═════════════════════════════════════════════════════════════════
+     PRIMARY APPLICATION SHELL (MISSION CONTROL STATION)
+═════════════════════════════════════════════════════════════ -->
+<div id="gcs-app" class="gcs-shell simple-mode">
+
+  <!-- TOP APPARATUS / MISSION CONTROL BANNER -->
+  <header class="gcs-header">
+    <div class="hdr-branding">
+      <div class="logo-mark"><i class="fas fa-satellite-dish"></i></div>
+      <div class="logo-meta">
+        <div class="meta-title">NETRA <span class="badge-gcs">GCS-v2.4</span></div>
+        <div class="meta-sub">EXOPLANETARY ROVER TELEMETRY &amp; GUIDANCE</div>
+      </div>
+    </div>
+
+    <!-- Beginner / Pro Mode Switcher -->
+    <div class="view-mode-toggle" id="view-mode-toggle" title="Switch interface complexity">
+      <button class="vmt-btn active" id="btn-mode-simple" data-mode="simple">
+        <i class="fas fa-seedling text-green"></i>
+        <span>Simple Mode</span>
+      </button>
+      <button class="vmt-btn" id="btn-mode-pro" data-mode="pro">
+        <i class="fas fa-sliders-h"></i>
+        <span>Pro Mode</span>
+      </button>
+    </div>
+
+    <!-- Telemetry Link & Status Indicators -->
+    <div class="hdr-telemetry">
+      <div class="link-node">
+        <span class="node-label">COMMS LINK</span>
+        <div class="node-val">
+          <span class="status-indicator online"></span>
+          <span class="val-mono">UDP / 5.8 GHz</span>
+          <span class="val-sub" id="hdr-freq">50 Hz · 18ms</span>
+        </div>
+      </div>
+      <div class="link-node">
+        <span class="node-label">GNSS FIX</span>
+        <div class="node-val">
+          <span class="status-indicator online"></span>
+          <span class="val-mono" id="hdr-gnss">RTK FIXED</span>
+          <span class="val-sub" id="hdr-sats">19 Sats · HDOP 0.6</span>
+        </div>
+      </div>
+      <div class="link-node">
+        <span class="node-label">BUS POWER</span>
+        <div class="node-val">
+          <span class="val-mono" id="hdr-voltage">24.58 V</span>
+          <span class="val-sub" id="hdr-battery">78% · 11.4A</span>
+        </div>
+      </div>
+      <div class="link-node">
+        <span class="node-label">MISSION MET</span>
+        <div class="node-val">
+          <span class="val-mono text-cyan" id="hdr-timer">T+ 01:24:18</span>
+          <span class="val-sub" id="hdr-utc">08:45:12 UTC</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Mode, Arming Switch & 3D Showcase Portal Return -->
+    <div class="hdr-controls">
+      <!-- Beginner Quick Help Button -->
+      <button id="btn-quick-help" class="gcs-btn help-btn" title="Open Beginner Quick Guide">
+        <i class="fas fa-question-circle text-cyan"></i>
+        <span>Help / Guide</span>
+      </button>
+
+      <!-- 3D Showcase Re-open Button -->
+      <button id="btn-open-portal" class="gcs-btn portal-return-btn" title="Return to 3D Rover Showcase">
+        <i class="fas fa-cube text-cyan"></i>
+        <span>3D Showcase</span>
+      </button>
+
+      <div class="mode-selector-wrap">
+        <label for="mode-select" class="mode-label">NAV MODE</label>
+        <select id="mode-select" class="gcs-select">
+          <option value="MANUAL">MANUAL (RC)</option>
+          <option value="HOLD">HOLD (BRAKE)</option>
+          <option value="AUTO" selected>AUTO (WAYPOINTS)</option>
+          <option value="GUIDED">GUIDED (TARGET)</option>
+          <option value="RTL">RTL (RETURN HOME)</option>
+        </select>
+      </div>
+
+      <button id="arm-toggle-btn" class="gcs-btn arm-btn armed" title="Toggle Actuator Power State">
+        <i class="fas fa-shield-alt"></i>
+        <span id="arm-state-text">ARMED</span>
+      </button>
+
+      <button id="estop-btn" class="gcs-btn estop-btn" title="EMERGENCY HARDWARE SHUTDOWN">
+        <i class="fas fa-power-off"></i>
+        <span>E-STOP</span>
+      </button>
+
+      <button id="fs-btn" class="gcs-btn icon-btn" title="Toggle Fullscreen">
+        <i class="fas fa-expand"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- WORKSPACE BODY WITH DOCKABLE LAYOUT -->
+  <div class="gcs-body">
+
+    <!-- COMPACT ENGINEERING SIDE NAVIGATION -->
+    <nav class="gcs-nav" aria-label="System Navigation">
+      <button class="nav-tab active" data-tab="cockpit" title="Cockpit &amp; Primary Telemetry">
+        <i class="fas fa-tachometer-alt"></i>
+        <span>Cockpit</span>
+      </button>
+      <button class="nav-tab" data-tab="twin3d" title="3D Digital Twin CAD Viewer">
+        <i class="fas fa-cube"></i>
+        <span>3D Model</span>
+      </button>
+      <button class="nav-tab" data-tab="optics" title="Multi-Camera Array &amp; Gimbal">
+        <i class="fas fa-video"></i>
+        <span>Optics</span>
+      </button>
+      <button class="nav-tab" data-tab="tactical" title="Tactical Map &amp; Waypoint Guidance">
+        <i class="fas fa-map-marked-alt"></i>
+        <span>Tactical</span>
+      </button>
+      <button class="nav-tab" data-tab="actuators" title="6-Wheel Rocker-Bogie Actuators">
+        <i class="fas fa-cogs"></i>
+        <span>Actuators</span>
+      </button>
+      <button class="nav-tab" data-tab="power" title="Power Bus &amp; Battery Balances">
+        <i class="fas fa-bolt"></i>
+        <span>Power</span>
+      </button>
+      <button class="nav-tab" data-tab="terminal" title="ROS2 Telemetry Topics &amp; Logs">
+        <i class="fas fa-terminal"></i>
+        <span>Logs</span>
+      </button>
+      <button class="nav-tab" data-tab="config" title="Ground Station Calibration &amp; Config">
+        <i class="fas fa-sliders-h"></i>
+        <span>Config</span>
+      </button>
+
+      <div class="nav-spacer"></div>
+
+      <div class="nav-system-health" title="Hardware Controller: STM32F7 / Jetson Orin Nano">
+        <div class="health-item">
+          <span>ORIN LOAD</span>
+          <strong id="orin-cpu">42%</strong>
+        </div>
+        <div class="health-item">
+          <span>CHASSIS</span>
+          <strong id="chassis-temp">32.4°C</strong>
+        </div>
+      </div>
+    </nav>
+
+    <!-- MAIN VIEWPORT CONTAINER -->
+    <main class="gcs-viewport">
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 1: COCKPIT / MISSION OVERVIEW (MAIN TELEMETRY)
+      ═════════════════════════════════════════════════════════════ -->
+      <section class="gcs-page active" id="page-cockpit">
+        
+        <!-- Beginner Friendly Quick Guide Bar -->
+        <div class="beginner-helper-bar" id="beginner-helper-bar">
+          <div class="bhb-left">
+            <span class="bhb-badge"><i class="fas fa-gamepad"></i> EASY CONTROLS</span>
+            <span class="bhb-text">
+              Use keys <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>↑</kbd><kbd>←</kbd><kbd>↓</kbd><kbd>→</kbd> to drive · Click anywhere on the map to navigate · Select speed presets below!
+            </span>
+          </div>
+          <div class="bhb-actions">
+            <button class="bhb-btn" id="btn-open-tutorial"><i class="fas fa-book-open text-green"></i> How to Operate</button>
+            <button class="bhb-close" id="btn-dismiss-helper" title="Hide Guide Bar"><i class="fas fa-times"></i></button>
+          </div>
+        </div>
+
+        <!-- Top Metrics Strip -->
+        <div class="metrics-strip">
+          <div class="metric-card depth-card">
+            <div class="card-caption">GROUND SPEED</div>
+            <div class="card-reading">
+              <span class="value-huge font-mono text-green" id="met-speed">2.38</span>
+              <span class="unit">m/s</span>
+            </div>
+            <div class="card-detail">TARGET: 2.50 m/s · ERR: -0.12</div>
+          </div>
+          <div class="metric-card depth-card">
+            <div class="card-caption">CURRENT DRAW</div>
+            <div class="card-reading">
+              <span class="value-huge font-mono" id="met-current">11.42</span>
+              <span class="unit">A</span>
+            </div>
+            <div class="card-detail">POWER: 280.7 W · CELL MIN: 4.08V</div>
+          </div>
+          <div class="metric-card depth-card">
+            <div class="card-caption">HEADING / YAW</div>
+            <div class="card-reading">
+              <span class="value-huge font-mono text-cyan" id="met-heading">142.6°</span>
+              <span class="unit">NE</span>
+            </div>
+            <div class="card-detail">MAG DECLINATION: +0.8°</div>
+          </div>
+          <div class="metric-card depth-card">
+            <div class="card-caption">ATTITUDE PITCH / ROLL</div>
+            <div class="card-reading">
+              <span class="value-huge font-mono" id="met-attitude">+2.4°</span>
+              <span class="unit">/ -0.8°</span>
+            </div>
+            <div class="card-detail">STABILITY INDEX: 98.2% (SAFE)</div>
+          </div>
+          <div class="metric-card depth-card">
+            <div class="card-caption">NEXT WAYPOINT</div>
+            <div class="card-reading">
+              <span class="value-huge font-mono text-yellow" id="met-wp">WP-05</span>
+              <span class="unit">14.2m</span>
+            </div>
+            <div class="card-detail">BEARING: 138° · ETA: 00:06</div>
+          </div>
+        </div>
+
+        <!-- 3-Column Engineering Cockpit Grid -->
+        <div class="cockpit-grid">
+
+          <!-- COLUMN 1: PFD (Primary Flight / Attitude Display) & Teleop -->
+          <div class="gcs-panel panel-pfd depth-card" id="panel-control-deck">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-gamepad text-green"></i> ROVER DRIVE &amp; CONTROLS</div>
+              <div class="deck-state-badge text-green" id="deck-status-badge"><i class="fas fa-circle"></i> READY TO DRIVE</div>
+            </div>
+            <div class="panel-body pfd-body">
+
+              <!-- BIG INTUITIVE DRIVE PAD FOR BEGINNERS -->
+              <div class="simple-drive-deck" id="simple-drive-deck">
+                
+                <!-- Speed Mode Selector -->
+                <div class="speed-presets-row">
+                  <span class="preset-label">SPEED:</span>
+                  <button class="speed-btn" data-speed="0.8" id="speed-slow" title="Slow Crawl for precision maneuvering">🐢 Slow</button>
+                  <button class="speed-btn active" data-speed="1.5" id="speed-normal" title="Normal Exploration Cruise">🚗 Normal</button>
+                  <button class="speed-btn" data-speed="2.5" id="speed-turbo" title="Turbo Sprint on flat terrain">⚡ Turbo</button>
+                </div>
+
+                <!-- Big Interactive D-Pad with WASD and Arrow Key labels -->
+                <div class="easy-dpad-container">
+                  <button class="easy-cmd-btn btn-fwd" id="btn-easy-fwd" title="Drive Forward (W or Up Arrow)">
+                    <i class="fas fa-arrow-up"></i>
+                    <span class="btn-key-hint">W / ↑</span>
+                    <span class="btn-act-hint">FORWARD</span>
+                  </button>
+                  <div class="easy-dpad-row">
+                    <button class="easy-cmd-btn btn-left" id="btn-easy-left" title="Steer Left (A or Left Arrow)">
+                      <i class="fas fa-arrow-left"></i>
+                      <span class="btn-key-hint">A / ←</span>
+                      <span class="btn-act-hint">LEFT</span>
+                    </button>
+                    <button class="easy-cmd-btn btn-stop" id="btn-easy-stop" title="Brake / Full Stop (Spacebar)">
+                      <i class="fas fa-hand-paper"></i>
+                      <span class="btn-key-hint">SPACE</span>
+                      <span class="btn-act-hint">STOP</span>
+                    </button>
+                    <button class="easy-cmd-btn btn-right" id="btn-easy-right" title="Steer Right (D or Right Arrow)">
+                      <i class="fas fa-arrow-right"></i>
+                      <span class="btn-key-hint">D / →</span>
+                      <span class="btn-act-hint">RIGHT</span>
+                    </button>
+                  </div>
+                  <button class="easy-cmd-btn btn-rev" id="btn-easy-rev" title="Reverse Backwards (S or Down Arrow)">
+                    <i class="fas fa-arrow-down"></i>
+                    <span class="btn-key-hint">S / ↓</span>
+                    <span class="btn-act-hint">REVERSE</span>
+                  </button>
+                </div>
+
+                <!-- One-Touch Mission Actions for Beginners -->
+                <div class="easy-actions-grid">
+                  <button class="easy-action-btn action-manual active" id="btn-act-manual" title="Take direct manual keyboard/touch control">
+                    <i class="fas fa-gamepad"></i>
+                    <span>Manual</span>
+                  </button>
+                  <button class="easy-action-btn action-auto" id="btn-act-autopatrol" title="Rover automatically traverses waypoints">
+                    <i class="fas fa-route"></i>
+                    <span>Auto-Patrol</span>
+                  </button>
+                  <button class="easy-action-btn action-rtl" id="btn-act-rtl" title="Rover turns around and returns to base">
+                    <i class="fas fa-home"></i>
+                    <span>Return Base</span>
+                  </button>
+                  <button class="easy-action-btn action-estop" id="btn-act-estop" title="Instant emergency stop of all motors">
+                    <i class="fas fa-power-off"></i>
+                    <span>E-STOP</span>
+                  </button>
+                </div>
+
+                <!-- Quick Toggle for Horizon PFD -->
+                <div class="deck-footer-toggle">
+                  <button class="pfd-toggle-btn" id="btn-toggle-pfd-view">
+                    <i class="fas fa-chart-line"></i> <span id="pfd-toggle-text">Show Artificial Horizon (PFD)</span>
+                  </button>
+                </div>
+
+              </div><!-- /simple-drive-deck -->
+
+              <!-- PFD ARTIFICIAL HORIZON (shown in Pro Mode or when toggled) -->
+              <div class="horizon-wrapper pfd-secondary-view" id="pfd-horizon-wrapper">
+                <svg id="pfd-svg" viewBox="0 0 320 220" class="pfd-svg">
+                  <defs>
+                    <clipPath id="horizon-clip">
+                      <rect x="0" y="0" width="320" height="220" rx="4"/>
+                    </clipPath>
+                  </defs>
+                  <!-- Sky & Ground layers rotated by roll and translated by pitch -->
+                  <g clip-path="url(#horizon-clip)">
+                    <g id="horizon-dynamic-group" transform="translate(160, 110) rotate(-0.8)">
+                      <!-- Sky -->
+                      <rect x="-300" y="-400" width="600" height="400" fill="#1e3a5f"/>
+                      <!-- Ground -->
+                      <rect x="-300" y="0" width="600" height="400" fill="#382618"/>
+                      <!-- Horizon Line -->
+                      <line x1="-300" y1="0" x2="300" y2="0" stroke="#10b981" stroke-width="2"/>
+                      <!-- Pitch Ladder Lines -->
+                      <g stroke="#ffffff" stroke-width="1.2" opacity="0.75" font-family="JetBrains Mono" font-size="9" text-anchor="middle">
+                        <!-- +20 deg -->
+                        <line x1="-30" y1="-50" x2="30" y2="-50"/>
+                        <text x="-42" y="-47">+20</text><text x="42" y="-47">+20</text>
+                        <!-- +10 deg -->
+                        <line x1="-20" y1="-25" x2="20" y2="-25"/>
+                        <text x="-32" y="-22">+10</text><text x="32" y="-22">+10</text>
+                        <!-- -10 deg -->
+                        <line x1="-20" y1="25" x2="20" y2="25" stroke-dasharray="4,3"/>
+                        <text x="-32" y="28">-10</text><text x="32" y="28">-10</text>
+                        <!-- -20 deg -->
+                        <line x1="-30" y1="50" x2="30" y2="50" stroke-dasharray="4,3"/>
+                        <text x="-42" y="53">-20</text><text x="42" y="53">-20</text>
+                      </g>
+                    </g>
+
+                    <!-- Fixed Aircraft/Rover Reticle Crosshairs -->
+                    <g class="reticle" stroke="#f59e0b" stroke-width="2.5" fill="none">
+                      <line x1="80" y1="110" x2="130" y2="110"/>
+                      <polyline points="130,110 145,120 160,110 175,120 190,110"/>
+                      <line x1="190" y1="110" x2="240" y2="110"/>
+                      <circle cx="160" cy="110" r="3" fill="#f59e0b"/>
+                    </g>
+
+                    <!-- Speed Tape (Left) -->
+                    <g class="tape-speed" transform="translate(10, 20)">
+                      <rect x="0" y="0" width="36" height="180" fill="rgba(9,13,18,0.8)" stroke="#222f3e" stroke-width="1"/>
+                      <text x="18" y="14" fill="#94a3b8" font-size="8" font-family="JetBrains Mono" text-anchor="middle">m/s</text>
+                      <text x="18" y="94" fill="#10b981" font-size="13" font-weight="700" font-family="JetBrains Mono" text-anchor="middle" id="pfd-speed-tape">2.4</text>
+                    </g>
+
+                    <!-- Altitude Tape (Right) -->
+                    <g class="tape-alt" transform="translate(274, 20)">
+                      <rect x="0" y="0" width="36" height="180" fill="rgba(9,13,18,0.8)" stroke="#222f3e" stroke-width="1"/>
+                      <text x="18" y="14" fill="#94a3b8" font-size="8" font-family="JetBrains Mono" text-anchor="middle">ALT m</text>
+                      <text x="18" y="94" fill="#06b6d4" font-size="12" font-weight="700" font-family="JetBrains Mono" text-anchor="middle" id="pfd-alt-tape">48.2</text>
+                    </g>
+
+                    <!-- Compass Heading Ribbon (Top) -->
+                    <g class="tape-heading" transform="translate(48, 4)">
+                      <rect x="0" y="0" width="224" height="20" fill="rgba(9,13,18,0.9)" stroke="#222f3e" stroke-width="1"/>
+                      <polygon points="112,20 108,14 116,14" fill="#10b981"/>
+                      <text x="112" y="12" fill="#ffffff" font-size="10" font-weight="700" font-family="JetBrains Mono" text-anchor="middle" id="pfd-heading-tape">142° NE</text>
+                    </g>
+                  </defs>
+                </svg>
+              </div>
+
+              <!-- Quick Teleoperation / Direction Controller (Pro View) -->
+              <div class="teleop-subpanel pfd-secondary-view">
+                <div class="teleop-header">
+                  <span>VELOCITY COMMAND BUS (/cmd_vel)</span>
+                  <span class="teleop-badge" id="teleop-source">KEYBOARD: WASD / ARROWS</span>
+                </div>
+                <div class="teleop-row">
+                  <div class="dpad-compact">
+                    <button class="cmd-btn" id="btn-drive-fwd" title="Forward [Up Arrow or W]"><i class="fas fa-arrow-up"></i></button>
+                    <div class="dpad-mid">
+                      <button class="cmd-btn" id="btn-drive-left" title="Turn Left [Left Arrow or A]"><i class="fas fa-arrow-left"></i></button>
+                      <button class="cmd-btn btn-brake" id="btn-drive-brake" title="Active Brake [Spacebar]"><i class="fas fa-stop"></i></button>
+                      <button class="cmd-btn" id="btn-drive-right" title="Turn Right [Right Arrow or D]"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                    <button class="cmd-btn" id="btn-drive-rev" title="Reverse [Down Arrow or S]"><i class="fas fa-arrow-down"></i></button>
+                  </div>
+                  <div class="teleop-readouts">
+                    <div class="ro-line"><span>Linear Vel:</span> <strong id="ro-linear">0.00 m/s</strong></div>
+                    <div class="ro-line"><span>Angular Vel:</span> <strong id="ro-angular">0.00 rad/s</strong></div>
+                    <div class="ro-line"><span>Max Throttle:</span> <strong>60% (1.5 m/s)</strong></div>
+                    <div class="ro-line"><span>Brake Actuation:</span> <strong class="text-green" id="ro-brake">DISENGAGED</strong></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COLUMN 2: Tactical Topographic Vector Map & Navigation -->
+          <div class="gcs-panel panel-map depth-card">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-location-arrow text-cyan"></i> TACTICAL MISSION MAP</div>
+              <div class="hdr-actions">
+                <span class="map-hint"><i class="fas fa-mouse-pointer"></i> Click map to navigate</span>
+                <span class="coord-label" id="coord-display">23.02254° N, 72.57142° E</span>
+                <button class="panel-tool-btn" id="map-recenter-btn" title="Recenter to Rover"><i class="fas fa-crosshairs"></i></button>
+              </div>
+            </div>
+            <div class="panel-body map-body">
+              <div class="tactical-svg-wrap">
+                <svg id="tactical-map-svg" viewBox="0 0 460 320" class="tactical-svg" style="cursor: crosshair;">
+                  <!-- Coordinates Grid Pattern -->
+                  <defs>
+                    <pattern id="tac-grid" width="25" height="25" patternUnits="userSpaceOnUse">
+                      <path d="M 25 0 L 0 0 0 25" fill="none" stroke="#1d2736" stroke-width="0.7"/>
+                    </pattern>
+                  </defs>
+                  <rect width="460" height="320" fill="url(#tac-grid)"/>
+
+                  <!-- Geofence Boundary -->
+                  <polygon points="30,30 430,30 410,290 50,290" fill="none" stroke="rgba(239, 68, 68, 0.35)" stroke-width="1.5" stroke-dasharray="6,4"/>
+                  <text x="35" y="45" fill="rgba(239, 68, 68, 0.7)" font-size="8" font-family="JetBrains Mono">GEOFENCE PRIMARY PERIMETER</text>
+
+                  <!-- Topographical Elevation Contours -->
+                  <path d="M 60 160 Q 140 100 230 140 T 400 120" fill="none" stroke="#1f2d3d" stroke-width="1"/>
+                  <path d="M 50 200 Q 160 140 260 180 T 420 180" fill="none" stroke="#1f2d3d" stroke-width="1"/>
+
+                  <!-- Dynamic Click-to-Navigate Guidance Line -->
+                  <line id="map-guidance-line" x1="295" y1="102" x2="295" y2="102" stroke="#06b6d4" stroke-width="2" stroke-dasharray="4,4" opacity="0"/>
+
+                  <!-- Waypoints Track Line -->
+                  <polyline points="70,240 120,180 180,140 250,110 330,95 400,110" fill="none" stroke="#0ea5e9" stroke-width="1.8" stroke-dasharray="4,3"/>
+
+                  <!-- Traversed Trail -->
+                  <polyline points="70,240 120,180 180,140 250,110 295,102" fill="none" stroke="#10b981" stroke-width="2.2" id="traversed-trail"/>
+
+                  <!-- Waypoints Points -->
+                  <g class="wp-nodes" font-family="JetBrains Mono" font-size="8">
+                    <circle cx="70" cy="240" r="4" fill="#10b981"/><text x="78" y="243" fill="#64748b">WP-1</text>
+                    <circle cx="120" cy="180" r="4" fill="#10b981"/><text x="128" y="183" fill="#64748b">WP-2</text>
+                    <circle cx="180" cy="140" r="4" fill="#10b981"/><text x="188" y="143" fill="#64748b">WP-3</text>
+                    <circle cx="250" cy="110" r="4" fill="#10b981"/><text x="258" y="113" fill="#64748b">WP-4</text>
+                    <!-- Active Waypoint -->
+                    <circle cx="330" cy="95" r="5" fill="#f59e0b" stroke="#ffffff" stroke-width="1"/>
+                    <circle cx="330" cy="95" r="10" fill="none" stroke="#f59e0b" stroke-width="1" opacity="0.6"/>
+                    <text x="338" y="99" fill="#f59e0b" font-weight="700">WP-5 [ACTIVE]</text>
+
+                    <circle cx="400" cy="110" r="4" fill="#475569"/><text x="408" y="113" fill="#475569">WP-6</text>
+                  </g>
+
+                  <!-- Real-Time Interactive Click Target Marker -->
+                  <g id="map-target-marker" transform="translate(0, 0)" style="display: none;">
+                    <circle cx="0" cy="0" r="14" fill="rgba(6, 182, 212, 0.25)" stroke="#06b6d4" stroke-width="1.5">
+                      <animate attributeName="r" values="8;16;8" dur="1.5s" repeatCount="indefinite"/>
+                      <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/>
+                    </circle>
+                    <circle cx="0" cy="0" r="4" fill="#06b6d4"/>
+                    <text x="0" y="-14" text-anchor="middle" fill="#06b6d4" font-size="8" font-family="JetBrains Mono" font-weight="700">DESTINATION</text>
+                  </g>
+
+                  <!-- Real-Time Rover Position & Heading Vector Arrow -->
+                  <g id="map-rover-marker" transform="translate(295, 102) rotate(142)">
+                    <circle cx="0" cy="0" r="8" fill="rgba(16, 185, 129, 0.25)" stroke="#10b981" stroke-width="1.5"/>
+                    <polygon points="0,-12 5,6 0,2 -5,6" fill="#10b981"/>
+                    <!-- Projection line -->
+                    <line x1="0" y1="-12" x2="0" y2="-28" stroke="#10b981" stroke-width="1" stroke-dasharray="2,2"/>
+                  </g>
+
+                  <!-- Scale and Legend Overlay -->
+                  <g transform="translate(15, 298)" font-family="JetBrains Mono" font-size="8" fill="#64748b">
+                    <line x1="0" y1="0" x2="50" y2="0" stroke="#64748b" stroke-width="1.5"/>
+                    <line x1="0" y1="-3" x2="0" y2="3" stroke="#64748b" stroke-width="1.5"/>
+                    <line x1="50" y1="-3" x2="50" y2="3" stroke="#64748b" stroke-width="1.5"/>
+                    <text x="25" y="-4" text-anchor="middle">50 METERS</text>
+                  </g>
+                </svg>
+              </div>
+
+              <!-- Map Footer Status Bar -->
+              <div class="map-status-bar">
+                <div class="msb-item"><span>Distance Covered:</span> <strong>1,428 m</strong></div>
+                <div class="msb-item"><span>Cross-Track Error:</span> <strong class="text-green">0.03 m</strong></div>
+                <div class="msb-item"><span>Geofence Status:</span> <strong class="text-green">WITHIN BOUNDS</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- COLUMN 3: Primary Optical / IR Stream & Bounding Boxes -->
+          <div class="gcs-panel panel-optics depth-card">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-video text-yellow"></i> FORWARD OPTICS (CAM-01)</div>
+              <div class="stream-stats">
+                <span class="badge-live"><i class="fas fa-circle text-red"></i> LIVE RTSP</span>
+                <span class="badge-fps">60 FPS · 5.4 Mbps</span>
+              </div>
+            </div>
+            <div class="panel-body optics-body">
+              <div class="video-container">
+                <!-- Optical Viewport Simulation with clean grid & detection boxes -->
+                <div class="video-feed" id="video-stream-feed">
+                  <!-- Crosshairs & Optical Center Reticle -->
+                  <div class="reticle-h"></div>
+                  <div class="reticle-v"></div>
+
+                  <!-- HUD Overlays -->
+                  <div class="cam-osd-top">
+                    <span>IMX477 4K SENSOR</span>
+                    <span>EXPOSURE: 1/240s · ISO 160</span>
+                  </div>
+                  <div class="cam-osd-bot">
+                    <span>GIMBAL: PITCH -12.4° | YAW +0.2°</span>
+                    <span>FOV: 84° HORIZ</span>
+                  </div>
+                </div>
+
+                <!-- Gimbal & Lens Controls -->
+                <div class="gimbal-controls">
+                  <div class="gc-btn-group">
+                    <button class="gc-btn active" id="btn-cam-optical"><i class="fas fa-sun"></i> RGB</button>
+                    <button class="gc-btn" id="btn-cam-ir"><i class="fas fa-temperature-high"></i> THERMAL</button>
+                    <button class="gc-btn" id="btn-cam-depth"><i class="fas fa-layer-group"></i> DEPTH</button>
+                  </div>
+                  <div class="gc-actions">
+                    <button class="gc-action-btn" id="btn-snapshot" title="Capture High-Res Frame"><i class="fas fa-camera"></i> Snapshot</button>
+                    <button class="gc-action-btn" id="btn-rec" title="Toggle H.265 Recording"><i class="fas fa-circle text-red"></i> REC</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /cockpit-grid -->
+
+        <!-- Simplified Bottom Status Summary (shown in Simple Mode) -->
+        <div class="simple-dock-summary" id="simple-dock-summary">
+          <div class="sds-left">
+            <div class="sds-pill"><i class="fas fa-truck-monster text-green"></i> <span>Drivetrain:</span> <strong>6 Wheels Active · All Synchronized · 32.4°C</strong></div>
+            <div class="sds-pill"><i class="fas fa-microchip text-cyan"></i> <span>Robotics Core:</span> <strong>ROS2 Nominal · 0 Faults · EKF Fixed</strong></div>
+          </div>
+          <button class="sds-toggle-btn" id="btn-toggle-diagnostics">
+            <i class="fas fa-chevron-down" id="diag-chevron"></i>
+            <span id="diag-toggle-text">Show Detailed Telemetry &amp; Logs</span>
+          </button>
+        </div>
+
+        <!-- Bottom Engineering Telemetry Panels (Split Actuators + Terminal) -->
+        <div class="bottom-dock-grid collapsed-dock" id="bottom-dock-grid">
+
+          <!-- 6-Wheel Rocker-Bogie Diagnostics -->
+          <div class="gcs-panel panel-actuators-compact depth-card">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-truck-monster text-green"></i> 6-WHEEL ROCKER-BOGIE DRIVETRAIN METRICS</div>
+              <span class="panel-badge">CAN-BUS 2.0B (1 Mbps)</span>
+            </div>
+            <div class="panel-body">
+              <div class="wheels-grid">
+                <!-- Left Track -->
+                <div class="wheel-pod" id="wheel-fl">
+                  <div class="pod-hdr"><span>FRONT-LEFT (FL)</span> <strong class="pod-rpm">184 RPM</strong></div>
+                  <div class="pod-bar-wrap"><div class="pod-bar" style="width: 68%;"></div></div>
+                  <div class="pod-sub"><span>1.84 A</span><span>32.1°C</span><span class="text-green">SYNC</span></div>
+                </div>
+                <div class="wheel-pod" id="wheel-ml">
+                  <div class="pod-hdr"><span>MID-LEFT (ML)</span> <strong class="pod-rpm">182 RPM</strong></div>
+                  <div class="pod-bar-wrap"><div class="pod-bar" style="width: 67%;"></div></div>
+                  <div class="pod-sub"><span>1.92 A</span><span>33.4°C</span><span class="text-green">SYNC</span></div>
+                </div>
+                <div class="wheel-pod" id="wheel-rl">
+                  <div class="pod-hdr"><span>REAR-LEFT (RL)</span> <strong class="pod-rpm">183 RPM</strong></div>
+                  <div class="pod-bar-wrap"><div class="pod-bar" style="width: 68%;"></div></div>
+                  <div class="pod-sub"><span>1.80 A</span><span>31.8°C</span><span class="text-green">SYNC</span></div>
+                </div>
+
+                <!-- Right Track -->
+                <div class="wheel-pod" id="wheel-fr">
+                  <div class="pod-hdr"><span>FRONT-RIGHT (FR)</span> <strong class="pod-rpm">184 RPM</strong></div>
+                  <div class="pod-bar-wrap"><div class="pod-bar" style="width: 68%;"></div></div>
+                  <div class="pod-sub"><span>1.86 A</span><span>32.5°C</span><span class="text-green">SYNC</span></div>
+                </div>
+                <div class="wheel-pod" id="wheel-mr">
+                  <div class="pod-hdr"><span>MID-RIGHT (MR)</span> <strong class="pod-rpm">185 RPM</strong></div>
+                  <div class="pod-bar-wrap"><div class="pod-bar" style="width: 69%;"></div></div>
+                  <div class="pod-sub"><span>1.94 A</span><span>34.0°C</span><span class="text-green">SYNC</span></div>
+                </div>
+                <div class="wheel-pod" id="wheel-rr">
+                  <div class="pod-hdr"><span>REAR-RIGHT (RR)</span> <strong class="pod-rpm">183 RPM</strong></div>
+                  <div class="pod-bar-wrap"><div class="pod-bar" style="width: 68%;"></div></div>
+                  <div class="pod-sub"><span>1.78 A</span><span>31.4°C</span><span class="text-green">SYNC</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live ROS2 / MAVLink Console Terminal -->
+          <div class="gcs-panel panel-terminal-compact depth-card">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-terminal text-cyan"></i> LIVE ROS2 TELEMETRY STREAM</div>
+              <div class="terminal-actions">
+                <input type="text" id="log-filter-input" placeholder="Filter topic or text..." class="term-filter"/>
+                <button class="panel-tool-btn" id="term-clear-btn" title="Clear Terminal"><i class="fas fa-trash-alt"></i></button>
+                <button class="panel-tool-btn" id="term-export-btn" title="Export CSV / JSON Log"><i class="fas fa-download"></i></button>
+              </div>
+            </div>
+            <div class="panel-body terminal-body" id="live-terminal-body">
+              <!-- Log entries appended dynamically -->
+            </div>
+          </div>
+
+        </div><!-- /bottom-dock-grid -->
+
+      </section>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 2: 3D DIGITAL TWIN (CAD / ROBOTICS VIEWPORT)
+      ═════════════════════════════════════════════════════════════ -->
+      <section class="gcs-page" id="page-twin3d">
+        <div class="twin-workspace">
+          <!-- 3D Canvas Area -->
+          <div class="twin-viewport-container depth-card">
+            <div class="twin-toolbar">
+              <div class="tb-group">
+                <span class="tb-label">CAMERA PRESETS:</span>
+                <button class="tb-btn active" id="cam-preset-iso">Isometric</button>
+                <button class="tb-btn" id="cam-preset-top">Plan (Top)</button>
+                <button class="tb-btn" id="cam-preset-front">Front</button>
+                <button class="tb-btn" id="cam-preset-side">Side</button>
+                <button class="tb-btn" id="cam-preset-chase">Chase (Behind)</button>
+              </div>
+              <div class="tb-group">
+                <label class="tb-check"><input type="checkbox" id="chk-wireframe"/> <span>Wireframe</span></label>
+                <label class="tb-check"><input type="checkbox" id="chk-lidar" checked/> <span>LiDAR Rays</span></label>
+                <label class="tb-check"><input type="checkbox" id="chk-axes" checked/> <span>XYZ Axes</span></label>
+                <button class="tb-btn" id="twin-reset-btn"><i class="fas fa-sync-alt"></i> Recenter</button>
+              </div>
+            </div>
+
+            <div class="three-viewport" id="three-container">
+              <canvas id="three-canvas"></canvas>
+
+              <!-- CAD Viewport Coordinate Overlay -->
+              <div class="cad-overlay-hud">
+                <div class="hud-top-left">
+                  <div class="cad-title">NETRA MK-2 DIGITAL TWIN</div>
+                  <div class="cad-meta">SCALE: 1:1 METRIC | KINEMATIC CHAIN: 6-WHEEL ROCKER-BOGIE</div>
+                </div>
+                <div class="hud-top-right">
+                  <div class="euler-readout">PITCH: <span id="twin-pitch" class="val-mono text-cyan">+2.4°</span></div>
+                  <div class="euler-readout">ROLL: <span id="twin-roll" class="val-mono text-cyan">-0.8°</span></div>
+                  <div class="euler-readout">YAW: <span id="twin-yaw" class="val-mono text-cyan">142.6°</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3D Sidebar Diagnostics -->
+          <div class="twin-sidebar">
+            <div class="gcs-panel depth-card">
+              <div class="panel-header"><div class="hdr-title"><i class="fas fa-info-circle"></i> CHASSIS SPECIFICATIONS</div></div>
+              <div class="spec-table">
+                <div class="spec-row"><span>Curb Weight:</span> <strong>14.2 kg (with payloads)</strong></div>
+                <div class="spec-row"><span>Ground Clearance:</span> <strong>145 mm</strong></div>
+                <div class="spec-row"><span>Wheelbase:</span> <strong>640 mm</strong></div>
+                <div class="spec-row"><span>Track Width:</span> <strong>480 mm</strong></div>
+                <div class="spec-row"><span>Suspension Travel:</span> <strong>±120 mm Articulation</strong></div>
+                <div class="spec-row"><span>Steering Angle (FL/FR):</span> <strong id="spec-steer">0.0°</strong></div>
+                <div class="spec-row"><span>Center of Gravity (CG):</span> <strong>X: +12mm, Y: -45mm</strong></div>
+              </div>
+            </div>
+
+            <div class="gcs-panel depth-card" style="margin-top: 12px;">
+              <div class="panel-header"><div class="hdr-title"><i class="fas fa-radar"></i> SENSOR PAYLOADS STATUS</div></div>
+              <div class="spec-table">
+                <div class="spec-row"><span>Velodyne VLP-16 LiDAR:</span> <strong class="text-green">ONLINE (1600 pts/s)</strong></div>
+                <div class="spec-row"><span>Stereo Optical Mast:</span> <strong class="text-green">ONLINE (1080p60)</strong></div>
+                <div class="spec-row"><span>FLIR Lepton 3.5 (IR):</span> <strong class="text-green">ONLINE (160×120)</strong></div>
+                <div class="spec-row"><span>Tri-Band RTK GNSS:</span> <strong class="text-green">FIXED (19 SVs)</strong></div>
+                <div class="spec-row"><span>Ultrasonic Sonar Ring:</span> <strong class="text-green">NOMINAL (8 Nodes)</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 3: OPTICS & MULTI-CAMERA STREAM VIEW
+      ═════════════════════════════════════════════════════════════ -->
+      <section class="gcs-page" id="page-optics">
+        <div class="optics-multigrid">
+          <!-- Main Camera -->
+          <div class="gcs-panel optics-card-large depth-card">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-eye text-green"></i> CAM-01: PRIMARY FORWARD OPTICAL (4K RGB)</div>
+              <span class="badge-live">LIVE RTSP // 1920×1080@60fps</span>
+            </div>
+            <div class="panel-body">
+              <div class="cam-box-mockup">
+                <div class="reticle-h"></div><div class="reticle-v"></div>
+                <div class="cam-info-bar">MAIN GIMBAL · 12-BIT HDR · LOW-LATENCY WEBRTC STREAM</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Camera 1 -->
+          <div class="gcs-panel depth-card">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-eye"></i> CAM-02: REAR DOCKING CAMERA</div>
+              <span class="badge-sub">720p30</span>
+            </div>
+            <div class="panel-body">
+              <div class="cam-box-mockup sm">
+                <div class="reticle-h"></div><div class="reticle-v"></div>
+                <div class="cam-info-bar">REAR BLIND-SPOT COVERAGE · REVERSE ASSIST ACTIVE</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Camera 2 -->
+          <div class="gcs-panel depth-card">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-fire-alt text-yellow"></i> CAM-03: FLIR THERMAL RADIOMETER</div>
+              <span class="badge-sub">RAW KELVIN</span>
+            </div>
+            <div class="panel-body">
+              <div class="cam-box-mockup sm thermal-mock">
+                <div class="reticle-h"></div><div class="reticle-v"></div>
+                <div class="cam-info-bar">IRONBOW PALETTE · MIN: 18.2°C / MAX: 42.6°C</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Camera 3 -->
+          <div class="gcs-panel depth-card">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-layer-group text-cyan"></i> CAM-04: DEPTH DISPARITY MAP</div>
+              <span class="badge-sub">DEPTH POINTCLOUD</span>
+            </div>
+            <div class="panel-body">
+              <div class="cam-box-mockup sm depth-mock">
+                <div class="reticle-h"></div><div class="reticle-v"></div>
+                <div class="cam-info-bar">STEREO DISPARITY · Z-RANGE: 0.3m – 15.0m</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 4: TACTICAL WAYPOINT & NAVIGATION PLANNER
+      ═════════════════════════════════════════════════════════════ -->
+      <section class="gcs-page" id="page-tactical">
+        <div class="tactical-workspace">
+          <div class="gcs-panel tactical-map-fullscreen depth-card">
+            <div class="panel-header">
+              <div class="hdr-title"><i class="fas fa-map-marked-alt text-cyan"></i> AUTONOMOUS WAYPOINT MISSION PLANNER</div>
+              <div class="hdr-actions">
+                <button class="gcs-btn" id="btn-upload-mission"><i class="fas fa-upload"></i> Upload Mission (MAVLink)</button>
+                <button class="gcs-btn" id="btn-clear-wps"><i class="fas fa-trash"></i> Clear</button>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div class="tac-full-wrap">
+                <svg viewBox="0 0 700 450" class="tactical-svg">
+                  <defs>
+                    <pattern id="tac-grid-lg" width="30" height="30" patternUnits="userSpaceOnUse">
+                      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#1d2736" stroke-width="0.8"/>
+                    </pattern>
+                  </defs>
+                  <rect width="700" height="450" fill="url(#tac-grid-lg)"/>
+                  <!-- Waypoint lines -->
+                  <polyline points="80,380 160,280 260,210 380,160 510,130 620,150" fill="none" stroke="#0284c7" stroke-width="2.5" stroke-dasharray="6,4"/>
+                  <!-- Traversed trail -->
+                  <polyline points="80,380 160,280 260,210 380,160 460,140" fill="none" stroke="#10b981" stroke-width="3"/>
+                  <!-- Waypoint circle badges -->
+                  <g font-family="JetBrains Mono" font-size="9" fill="#ffffff">
+                    <circle cx="80" cy="380" r="6" fill="#10b981"/><text x="92" y="383">WP-01 [DONE]</text>
+                    <circle cx="160" cy="280" r="6" fill="#10b981"/><text x="172" y="283">WP-02 [DONE]</text>
+                    <circle cx="260" cy="210" r="6" fill="#10b981"/><text x="272" y="213">WP-03 [DONE]</text>
+                    <circle cx="380" cy="160" r="6" fill="#10b981"/><text x="392" y="163">WP-04 [DONE]</text>
+                    <circle cx="510" cy="130" r="8" fill="#f59e0b" stroke="#ffffff" stroke-width="1.5"/>
+                    <text x="524" y="134" fill="#f59e0b" font-weight="700">WP-05 [CURRENT TARGET]</text>
+                    <circle cx="620" cy="150" r="6" fill="#475569"/><text x="632" y="153" fill="#64748b">WP-06 [QUEUED]</text>
+                  </g>
+                  <!-- Rover marker -->
+                  <g transform="translate(460, 140) rotate(142)">
+                    <circle cx="0" cy="0" r="10" fill="rgba(16,185,129,0.3)" stroke="#10b981" stroke-width="2"/>
+                    <polygon points="0,-16 6,8 0,3 -6,8" fill="#10b981"/>
+                  </g>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mission Waypoint Table -->
+          <div class="gcs-panel tactical-table-panel depth-card">
+            <div class="panel-header"><div class="hdr-title"><i class="fas fa-list-ol"></i> FLIGHT PLAN SCHEDULE</div></div>
+            <div class="panel-body">
+              <table class="gcs-table">
+                <thead>
+                  <tr>
+                    <th>SEQ</th>
+                    <th>LAT / LONG</th>
+                    <th>SPEED</th>
+                    <th>ACTION</th>
+                    <th>STATUS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td>01</td><td>23.02104°N, 72.57002°E</td><td>2.0 m/s</td><td>WAYPOINT</td><td class="text-green">COMPLETE</td></tr>
+                  <tr><td>02</td><td>23.02148°N, 72.57056°E</td><td>2.5 m/s</td><td>SAMPLE_IR</td><td class="text-green">COMPLETE</td></tr>
+                  <tr><td>03</td><td>23.02189°N, 72.57098°E</td><td>2.5 m/s</td><td>WAYPOINT</td><td class="text-green">COMPLETE</td></tr>
+                  <tr><td>04</td><td>23.02224°N, 72.57134°E</td><td>2.2 m/s</td><td>WAYPOINT</td><td class="text-green">COMPLETE</td></tr>
+                  <tr class="active-row"><td>05</td><td>23.02268°N, 72.57182°E</td><td>2.5 m/s</td><td>SOIL_CORE</td><td class="text-yellow">EXECUTING</td></tr>
+                  <tr><td>06</td><td>23.02310°N, 72.57224°E</td><td>1.8 m/s</td><td>LOITER_RTL</td><td class="text-muted">QUEUED</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 5: POWER BUS & BATTERY TELEMETRY
+      ═════════════════════════════════════════════════════════════ -->
+      <section class="gcs-page" id="page-power">
+        <div class="power-workspace">
+          <!-- Main Battery Metrics -->
+          <div class="gcs-panel depth-card">
+            <div class="panel-header"><div class="hdr-title"><i class="fas fa-car-battery text-green"></i> 6S LiFePO4 ACCUMULATOR PACK (24V 30Ah)</div></div>
+            <div class="panel-body">
+              <div class="cells-grid">
+                <div class="cell-box"><span class="cell-id">CELL 01</span><strong class="cell-val">4.098 V</strong><div class="cell-bar"><div class="cb-fill" style="width: 82%;"></div></div></div>
+                <div class="cell-box"><span class="cell-id">CELL 02</span><strong class="cell-val">4.102 V</strong><div class="cell-bar"><div class="cb-fill" style="width: 83%;"></div></div></div>
+                <div class="cell-box"><span class="cell-id">CELL 03</span><strong class="cell-val">4.095 V</strong><div class="cell-bar"><div class="cb-fill" style="width: 81%;"></div></div></div>
+                <div class="cell-box"><span class="cell-id">CELL 04</span><strong class="cell-val">4.099 V</strong><div class="cell-bar"><div class="cb-fill" style="width: 82%;"></div></div></div>
+                <div class="cell-box"><span class="cell-id">CELL 05</span><strong class="cell-val">4.101 V</strong><div class="cell-bar"><div class="cb-fill" style="width: 82%;"></div></div></div>
+                <div class="cell-box"><span class="cell-id">CELL 06</span><strong class="cell-val">4.096 V</strong><div class="cell-bar"><div class="cb-fill" style="width: 81%;"></div></div></div>
+              </div>
+              <div class="power-summary-metrics">
+                <div class="psm-item"><span>Total Pack Voltage:</span> <strong id="pwr-total-v">24.59 V</strong></div>
+                <div class="psm-item"><span>Cell Imbalance Delta:</span> <strong class="text-green">&lt; 7 mV (BALANCED)</strong></div>
+                <div class="psm-item"><span>Pack Internal Temp:</span> <strong>31.4°C</strong></div>
+                <div class="psm-item"><span>Remaining Capacity:</span> <strong>23.4 Ah / 30.0 Ah (78%)</strong></div>
+                <div class="psm-item"><span>Time to Depletion:</span> <strong>02h 04m @ 11.4A</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Power Consumers Distribution -->
+          <div class="gcs-panel depth-card">
+            <div class="panel-header"><div class="hdr-title"><i class="fas fa-network-wired"></i> POWER DISTRIBUTION BUS</div></div>
+            <div class="panel-body">
+              <div class="power-consumers-list">
+                <div class="consumer-row"><span>Traction Inverters (6× Motors):</span> <div class="c-bar"><div class="c-fill" style="width: 65%;"></div></div> <strong>182.4 W</strong></div>
+                <div class="consumer-row"><span>Onboard Compute (Jetson Orin):</span> <div class="c-bar"><div class="c-fill" style="width: 15%;"></div></div> <strong>42.0 W</strong></div>
+                <div class="consumer-row"><span>Sensor Mast &amp; LiDAR:</span> <div class="c-bar"><div class="c-fill" style="width: 10%;"></div></div> <strong>28.0 W</strong></div>
+                <div class="consumer-row"><span>RF Link &amp; Telemetry SDR:</span> <div class="c-bar"><div class="c-fill" style="width: 6%;"></div></div> <strong>16.8 W</strong></div>
+                <div class="consumer-row"><span>Auxiliary &amp; Logic Rails:</span> <div class="c-bar"><div class="c-fill" style="width: 4%;"></div></div> <strong>11.5 W</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 6: ROS2 / MAVLINK CONSOLE LOG TERMINAL (FULL VIEW)
+      ═════════════════════════════════════════════════════════════ -->
+      <section class="gcs-page" id="page-terminal">
+        <div class="gcs-panel terminal-page-panel depth-card">
+          <div class="panel-header">
+            <div class="hdr-title"><i class="fas fa-terminal"></i> LIVE ROS2 NODE TOPIC SUBSCRIPTIONS</div>
+            <div class="terminal-actions">
+              <span class="term-status-pill text-green"><i class="fas fa-circle"></i> NODE LINK: /netra_core_node ONLINE</span>
+              <button class="gcs-btn" id="term-full-clear"><i class="fas fa-trash"></i> Clear</button>
+              <button class="gcs-btn" id="term-full-export"><i class="fas fa-download"></i> Save Log</button>
+            </div>
+          </div>
+          <div class="panel-body terminal-full-body" id="full-terminal-output">
+            <!-- Full log lines -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ═════════════════════════════════════════════════════════════
+           VIEW 7: GROUND STATION CONFIGURATION & PARAMETERS
+      ═════════════════════════════════════════════════════════════ -->
+      <section class="gcs-page" id="page-config">
+        <div class="config-grid">
+          <div class="gcs-panel depth-card">
+            <div class="panel-header"><div class="hdr-title"><i class="fas fa-sliders-h"></i> TRACTION PID PARAMETERS</div></div>
+            <div class="panel-body config-form">
+              <div class="cfg-row"><label>Speed Kp (Proportional):</label><input type="number" step="0.01" value="1.45" class="gcs-input"/></div>
+              <div class="cfg-row"><label>Speed Ki (Integral):</label><input type="number" step="0.01" value="0.22" class="gcs-input"/></div>
+              <div class="cfg-row"><label>Speed Kd (Derivative):</label><input type="number" step="0.01" value="0.08" class="gcs-input"/></div>
+              <div class="cfg-row"><label>Steering Deadband:</label><input type="number" step="0.1" value="0.5" class="gcs-input"/></div>
+            </div>
+          </div>
+
+          <div class="gcs-panel depth-card">
+            <div class="panel-header"><div class="hdr-title"><i class="fas fa-shield-alt"></i> SAFETY GEOFENCE &amp; LIMITS</div></div>
+            <div class="panel-body config-form">
+              <div class="cfg-row"><label>Max Linear Velocity (m/s):</label><input type="number" step="0.1" value="3.5" class="gcs-input"/></div>
+              <div class="cfg-row"><label>Geofence Action:</label><select class="gcs-select"><option>RTL (Return to Launch)</option><option>HARD_BRAKE</option></select></div>
+              <div class="cfg-row"><label>Low-Battery Trigger (%):</label><input type="number" value="20" class="gcs-input"/></div>
+              <div class="cfg-row"><label>Link Loss Timeout (s):</label><input type="number" value="3.0" class="gcs-input"/></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div><!-- /gcs-body -->
+
+  <!-- HARDWARE CONFIRMATION MODAL (For E-STOP or Disarm) -->
+  <dialog id="confirm-modal" class="gcs-dialog">
+    <div class="dialog-box">
+      <div class="dialog-hdr"><i class="fas fa-exclamation-triangle text-yellow"></i> CONFIRM SAFETY ACTION</div>
+      <p id="dialog-msg">Are you sure you want to execute this command?</p>
+      <div class="dialog-actions">
+        <button id="dialog-cancel-btn" class="gcs-btn">Abort</button>
+        <button id="dialog-confirm-btn" class="gcs-btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- BEGINNER HOW-TO-OPERATE TUTORIAL MODAL -->
+  <dialog id="tutorial-modal" class="tutorial-dialog">
+    <div class="td-header">
+      <div class="td-title"><i class="fas fa-compass text-green"></i> How to Operate NETRA Rover</div>
+      <button class="td-close-btn" id="btn-close-tutorial" title="Close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="td-body">
+      <div class="tutorial-card">
+        <div class="tc-icon"><i class="fas fa-keyboard"></i></div>
+        <div class="tc-content">
+          <h4>1. Driving the Rover</h4>
+          <p>Press <strong>W, A, S, D</strong> or the <strong>Arrow Keys</strong> on your keyboard, or click the on-screen <strong>Drive Pad</strong> buttons. Hold to move, release to coast, or press <strong>Spacebar</strong> to brake instantly.</p>
+        </div>
+      </div>
+      <div class="tutorial-card">
+        <div class="tc-icon"><i class="fas fa-map-marked-alt text-cyan"></i></div>
+        <div class="tc-content">
+          <h4>2. Point-and-Click Map Navigation</h4>
+          <p>Click anywhere on the <strong>Tactical Mission Map</strong> to drop a destination marker. NETRA's autonomous navigation will calculate the path and steer directly towards it.</p>
+        </div>
+      </div>
+      <div class="tutorial-card">
+        <div class="tc-icon"><i class="fas fa-tachometer-alt text-yellow"></i></div>
+        <div class="tc-content">
+          <h4>3. Speed Control &amp; Modes</h4>
+          <p>Choose between <strong>🐢 Slow</strong> (0.8 m/s for rough rocks), <strong>🚗 Normal</strong> (1.5 m/s exploration), or <strong>⚡ Turbo</strong> (2.5 m/s). Use <strong>Return Base</strong> anytime to bring the rover back.</p>
+        </div>
+      </div>
+      <div class="tutorial-card">
+        <div class="tc-icon"><i class="fas fa-cube text-cyan"></i></div>
+        <div class="tc-content">
+          <h4>4. 3D Showcase &amp; Multi-Cameras</h4>
+          <p>Click the <strong>3D Showcase</strong> button in the header or the <strong>3D Model</strong> tab to view and inspect NETRA's realistic rocker-bogie chassis in 360°.</p>
+        </div>
+      </div>
+    </div>
+    <div class="td-footer">
+      <button class="gcs-btn" id="btn-got-it" style="background: var(--col-green); color: #000; font-weight: 700;"><i class="fas fa-check"></i> Got it, Let's Drive!</button>
+    </div>
+  </dialog>
+
+  <!-- FLOATING TOAST NOTIFICATION STACK -->
+  <div class="toast-container" id="toast-container"></div>
+
+</div><!-- /gcs-app -->
+
+<script src="app.js"></script>
+</body>
+</html>
